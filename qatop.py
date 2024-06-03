@@ -8,6 +8,29 @@ import time
 import urwid as u
 from urwid import LineBox
 
+class QatDevice():
+    def __init__(self,
+                 gen : str,
+                 desc : str,
+                 virtual):
+        self.gen = gen
+        self.pci_id = desc.split(' ')[0]
+        self.virtual = virtual
+        self.sys_path = pathlib.Path(f'/sys/bus/pci/devices/0000:{self.pci_id}/')
+        self.debugfs_enabled = False
+        if not self.virtual:
+            self.debugfs_path = pathlib.Path(f'/sys/kernel/debug/qat_{self.gen}_0000:{self.pci_id}')
+            self.debugfs_control_path = self.debugfs_path  / 'telemetry' / 'control'
+            try:
+                f = self.debugfs_control_path.open()
+                self.debugfs_enabled = True
+            except Exception as e:
+                print(e)
+                pass
+
+    def is_debugfs_enabled(self):
+        return self.debugfs_enabled
+
 class StateCat(Enum):
     CIPHER = 'cph'
     AUTHENTICATION = 'ath'
@@ -17,49 +40,43 @@ class StateCat(Enum):
     DECOMPRESSION = 'dcpr'
     TRANSLATOR = 'xlt'
 
-def urwid_progressbar_get_text(value, gb):
-    def get_text():
-        if value is None:
-            return 'N/A'
-    if value is None:
-        gb.get_text = get_text
-
 class PkeStat():
-    def __init__(self):
-        self.len = 0
+    def __init__(self, qatdev : QatDevice):
+        self.qatdev = qatdev
+        self.nb_lines = 0
         self.util_regex = re.compile('util_pke(\\d+)')
-        self.avg = None
+        self.avg = 0
 
     def refresh(self, lines):
-        len = 0
+        """
+        lines : empty lines mean no data
+        """
+        nb_lines = 0
         total = 0.0
         self.util_pke = []
+
+        if len(lines) == 0:
+            self.avg = -1
+            return
+
         for l in lines:
             m = self.util_regex.match(l)
             if m:
-                len = len + 1
+                nb_lines = nb_lines + 1
                 v = int(l.split()[1])
                 total = total + v
                 self.util_pke.append(v)
 
-        if self.len == 0:
-            self.len = len
-        assert len == self.len
+        if self.nb_lines == 0:
+            self.nb_lines = nb_lines
+        assert nb_lines == self.nb_lines
 
-        self.avg = total / len
+        self.avg = total / nb_lines
 
-class Qat4xxxDevice():
+class Qat4xxxDevice(QatDevice):
     def __init__(self, desc : str, virtual=False):
-        self.virtual = virtual
-        self.pci_id = desc.split(' ')[0]
+        super().__init__('4xxx', desc, virtual)
         self.virtual_functions = []
-        self.sys_path = pathlib.Path(f'/sys/bus/pci/devices/0000:{self.pci_id}/')
-        self.debugfs_path = pathlib.Path(f'/sys/kernel/debug/qat_4xxx_0000:{self.pci_id}')
-        try:
-            telemetry_path.open('w+')
-            self.debugfs_enabled = True
-        except:
-            self.debugfs_enabled = False
         if self.virtual:
             return
         device = '4941'
@@ -70,15 +87,15 @@ class Qat4xxxDevice():
             if self.check_vf(qat_dev):
                 self.virtual_functions.append(qat_dev)
 
-        self.pke = PkeStat()
+        self.pke = PkeStat(self)
+        self.enable_telemetry()
 
     def debugfs_fn(func):
         def debugfs_wrapper(self):
-            if self.debugfs_enabled:
-                self.func()
+            if self.is_debugfs_enabled():
+                func(self)
         return debugfs_wrapper
 
-    @debugfs_fn
     def enable_telemetry(self):
         assert self.virtual == False, "Telemetry only available for PF"
         telemetry_path = self.debugfs_path  / 'telemetry' / 'control'
@@ -89,23 +106,22 @@ class Qat4xxxDevice():
     @debugfs_fn
     def collect_telemetry(self):
         telemetry_path = self.debugfs_path  / 'telemetry' / 'device_data'
+        lines = []
         with telemetry_path.open() as f:
             data = f.read()
             lines = data.splitlines()
-            self.pke.refresh(lines)
+        self.pke.refresh(lines)
 
     @debugfs_fn
     def telemetry_control(self):
         assert self.virtual == False, "Telemetry only available for PF"
-        telemetry_path = self.debugfs_path  / 'telemetry' / 'control'
-        with telemetry_path.open() as f:
+        with self.debugfs_control_path.open() as f:
             return f.read()
 
     def dev_cfg(self):
         dev_cfg_path = self.debugfs_path  / 'dev_cfg'
         with dev_cfg_path.open() as f:
             return f.read()
-        
     def check_vf(self, vf):
         # ed:00.0
         pci_ids=self.pci_id.split(':')
@@ -139,13 +155,22 @@ class MyListBox(u.ListBox):
     def selectable(self):
         return len(self.body.contents) > 0
 
+class CustomProgressBar(u.ProgressBar):
+    def __init__(self, dev, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dev = dev
+
+    def get_text(self):
+        if self.current < 0:
+            return f"Not available (Missing : {self.dev.debugfs_path})"
+        return super().get_text()
+
 class App(object):
 
     def handle_key(self, key):
         if key in ('q',):
             raise u.ExitMainLoop()
         if key in ('tab',):
-        
             next_focus = (self.columns.focus_position + 1) % len(self.columns.contents)
             self.columns.set_focus(next_focus)
 
@@ -156,7 +181,7 @@ class App(object):
         self.pbs = []
         cols = []
         for dev in qat_manager.qat_devs:
-            pb = u.ProgressBar('','loaded')
+            pb = CustomProgressBar(dev, '', 'loaded')
             col = u.Columns([('weight', 0.2,
                               u.Text('{}/PKE'.format(dev.pci_id))), LineBox(pb)])
             self.pbs.append(pb)
@@ -170,7 +195,6 @@ class App(object):
                         header=self.header, footer=self.footer)
 
         palette = [("loaded", "black", "light cyan")]
-        
         loop = u.MainLoop(frame, palette, unhandled_input=self.handle_key)
 
         loop.set_alarm_in(1, self.refresh)
