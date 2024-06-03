@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+
+from qatlib import *
+
+import argparse
+from prettytable import PrettyTable
+from packaging import version
+
+VERSION = '1.0.0'
+
+# Check arguments and call requested function
+def main(opts, p):
+  global VERSION
+  qat_manager = QatDevManager(opts.devices)
+
+  if opts.status:
+    qat_manager.print_cfg()
+
+# Parse arguments and call main() function
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser(description=f'QAT control utility - v{VERSION}')
+  parser.add_argument('-d', '--devices', nargs='+', default=None)
+  parser.add_argument('--status', '-s', action='store_true', default=False, help='Print configuration for each PF')
+  results = parser.parse_args()
+  main(results, parser)
