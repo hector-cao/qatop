@@ -112,7 +112,6 @@ class QatDeviceTelemetry(dict):
       f = self.debugfs_control_path.open()
       self.debugfs_enabled = True
     except Exception as e:
-      print(e)
       pass
 
     self.__setitem__('device_data', DeviceData())
@@ -173,43 +172,55 @@ class QatDeviceDebugfs(dict):
 
 class Qat4xxxDevice():
   def __init__(self,
-         device_id,
+         pci_device_id : str,
          pci_id : str,
-         virtual=False,
-         pf = None):
+         is_virtual_function = False,
+         parent_pf = None):
+    self.pci_device_id = pci_device_id
     self.pci_id = pci_id
     self.bdf = f"0000:{self.pci_id}"
-    self.virtual = virtual
-    self.pf = pf
+    self.is_virtual_function = is_virtual_function
+    self.parent_pf = parent_pf
     self.sys_path = pathlib.Path(f'/sys/bus/pci/devices/{self.bdf}/')
 
-    if not self.virtual:
+    if not self.is_virtual_function:
       self.debugfs = QatDeviceDebugfs(pathlib.Path(f'/sys/kernel/debug/qat_4xxx_{self.bdf}'))
 
-    # vfio
-    if self.virtual:
+    if self.is_virtual_function:
+      # vfio
       self.vfio = None
       vfio_group = get_vfio(self.bdf)
       if vfio_group >= 0:
         self.vfio = VFIOGroup(vfio_group, self)
-
-    # VFs
-    self.vfs = []
-    if self.virtual:
       return
 
-    vf_device_id = str(int(device_id) + 1)
-    pci_ids = get_pci_ids(vf_device_id)
+    # this device is a PF
+    # build list of VFs
+    self._build_vfs()
+
+  def _build_vfs(self):
+    self.vfs = []
+    vf_pci_device_id = str(int(self.pci_device_id) + 1)
+    pci_ids = get_pci_ids(vf_pci_device_id)
     for pci_id in pci_ids:
-      qat_dev = Qat4xxxDevice(vf_device_id, pci_id, virtual=True, pf=self)
-      if self.check_vf(qat_dev):
+      qat_dev = Qat4xxxDevice(vf_pci_device_id,
+                              pci_id,
+                              is_virtual_function=True,
+                              parent_pf=self)
+      if self._check_vf(qat_dev):
         self.vfs.append(qat_dev)
 
-  def check_vf(self, vf):
-    # ed:00.0
+  def _check_vf(self, vf):
     pci_ids=self.pci_id.split(':')
     vf_pci_ids=vf.pci_id.split(':')
     return (pci_ids[0] == vf_pci_ids[0])
+
+  @property
+  def state(self):
+    path = self.sys_path / "qat" / "state"
+    with path.open() as f:
+      data = f.read()
+    return data.replace("\n", "")
 
   @property
   def cfg_services(self):
@@ -219,10 +230,11 @@ class Qat4xxxDevice():
     return data.replace("\n", "")
 
   def __repr__(self):
-    if self.virtual:
-      return f'{self.pci_id}: {self.vfio}'
+    if self.is_virtual_function:
+      return f'{self.pci_id}\t{self.vfio}'
     else:
-      return f'{self.pci_id}: {self.sys_path}: {self.cfg_services}'
+      # :<10 : to add space padding
+      return f'{self.pci_id}\t{self.sys_path}\t{self.cfg_services :<10}\t{self.state}'
 
 class QatDevManager:
   """
@@ -253,6 +265,10 @@ class QatDevManager:
   def print_telemetry(self):
     for d in self.qat_devs:
       print(d.debugfs.get('telemetry'))
+
+  def list_devices(self):
+    for d in self.qat_devs:
+      print(d)
 
   def print_cfg(self):
     for d in self.qat_devs:
