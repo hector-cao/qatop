@@ -228,6 +228,13 @@ class Qat4xxxDevice():
     self.set_state('up')
 
   @property
+  def numa_node(self):
+    path = self.sys_path / "numa_node"
+    with path.open() as f:
+      data = f.read()
+    return data.replace("\n", "")
+
+  @property
   def state(self):
     path = self.sys_path / "qat" / "state"
     with path.open() as f:
@@ -246,7 +253,7 @@ class Qat4xxxDevice():
       return f'{self.pci_id}\t{self.vfio}'
     else:
       # :<10 : to add space padding
-      return f'{self.pci_id}\t{self.sys_path}\t{self.cfg_services :<10}\t{self.state}'
+      return f'NUMA_{self.numa_node}\t{self.pci_id}\t{self.sys_path}\t{self.cfg_services :<10}\t{self.state}'
 
 class QatDevManager:
   """
