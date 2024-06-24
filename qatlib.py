@@ -215,6 +215,11 @@ class Qat4xxxDevice():
     vf_pci_ids=vf.pci_id.split(':')
     return (pci_ids[0] == vf_pci_ids[0])
 
+  def set_state(self, state):
+    path = self.sys_path / "qat" / "state"
+    with path.open('w+') as f:
+      f.write(state)
+
   @property
   def state(self):
     path = self.sys_path / "qat" / "state"
@@ -269,6 +274,10 @@ class QatDevManager:
   def list_devices(self):
     for d in self.qat_devs:
       print(d)
+
+  def set_state(self, state):
+    for d in self.qat_devs:
+      d.set_state(state)
 
   def print_cfg(self):
     for d in self.qat_devs:

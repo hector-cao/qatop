@@ -16,6 +16,11 @@ def main(opts, p):
     qat_manager.print_cfg()
     return
 
+  if opts.set_state:
+    print(f'Set device state : {opts.set_state}')
+    qat_manager.set_state(opts.set_state)
+    return
+
   qat_manager.list_devices()
 
 # Parse arguments and call main() function
@@ -24,5 +29,6 @@ if __name__ == '__main__':
   parser.add_argument('-d', '--devices', nargs='+', default=None)
   parser.add_argument('--status', '-s', action='store_true', default=False, help='Print configuration for each PF')
   parser.add_argument('--list', '-l', action='store_true', default=False, help='List devices (PF)')
+  parser.add_argument('--set-state', type=str, default=None, choices=['up', 'down'], help='Set device state')
   results = parser.parse_args()
   main(results, parser)
