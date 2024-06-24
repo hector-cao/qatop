@@ -60,10 +60,10 @@ cfg_services = [
 # Parse arguments and call main() function
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description=f'QAT control utility - v{VERSION}')
-  parser.add_argument('-d', '--devices', nargs='+', default=None)
-  parser.add_argument('--status', '-s', action='store_true', default=False, help='Print configuration for each PF')
-  parser.add_argument('--list', '-l', action='store_true', default=False, help='List devices (PF)')
-  parser.add_argument('--set-state', type=str, default=None, choices=['up', 'down'], help='Set device state')
-  parser.add_argument('--set-service', type=str, default=None, choices=cfg_services, help='Set device service')
+  parser.add_argument('-d', '--devices', nargs='+', default=None, help='select devices for the command (space separated)')
+  parser.add_argument('--status', '-s', action='store_true', default=False, help='print configuration')
+  parser.add_argument('--list', '-l', action='store_true', default=False, help='list devices (PF)')
+  parser.add_argument('--set-state', type=str, default=None, choices=['up', 'down'], help='set device state')
+  parser.add_argument('--set-service', type=str, default=None, choices=cfg_services, help='set device service')
   results = parser.parse_args()
   main(results, parser)
