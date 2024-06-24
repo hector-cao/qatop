@@ -24,6 +24,7 @@ def main(opts, p):
   if opts.set_service:
     print(f'Set device service : {opts.set_service}')
     qat_manager.set_service(opts.set_service)
+    print(f'Please restart qat service to update the config')
     return
 
   qat_manager.list_devices()
