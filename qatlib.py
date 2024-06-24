@@ -220,6 +220,13 @@ class Qat4xxxDevice():
     with path.open('w+') as f:
       f.write(state)
 
+  def set_service(self, service):
+    self.set_state('down')
+    path = self.sys_path / "qat" / "cfg_services"
+    with path.open('w+') as f:
+      f.write(service)
+    self.set_state('up')
+
   @property
   def state(self):
     path = self.sys_path / "qat" / "state"
@@ -278,6 +285,10 @@ class QatDevManager:
   def set_state(self, state):
     for d in self.qat_devs:
       d.set_state(state)
+
+  def set_service(self, service):
+    for d in self.qat_devs:
+      d.set_service(service)
 
   def print_cfg(self):
     for d in self.qat_devs:
