@@ -40,7 +40,7 @@ class CustomProgressBar(u.ProgressBar):
 
   def get_text(self):
     if self.current < 0:
-      return f"Not available (Missing : {self.dev.debugfs_path})"
+      return "Not available"
     avg_val = self.total / self.sample_count
     return f'{self.current:.1f}% (max: {self.max_val:.1f} - avg: {avg_val:.1f})'
 

@@ -72,7 +72,10 @@ class DeviceData(dict):
   def avg(self,
       counter_type : CounterType,
       engine : CounterEngine):
-    values = self.__getitem__(f'{counter_type.value}_{engine.value}')
+    try:
+      values = self.__getitem__(f'{counter_type.value}_{engine.value}')
+    except:
+      return -1
     return sum(values)/len(values)
 
   def parse(self, data : str):
