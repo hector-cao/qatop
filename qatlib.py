@@ -256,7 +256,12 @@ class Qat4xxxDevice():
       return f'{self.pci_id}\t{self.vfio}'
     else:
       # :<10 : to add space padding
-      return f'NUMA_{self.numa_node}\t{self.pci_id}\t{self.sys_path}\t{self.cfg_services :<10}\t{self.state}'
+      str = f'NUMA_{self.numa_node}\t{self.pci_id}\t{self.sys_path}\t{self.cfg_services :<10}\t{self.state}'
+      # virtual function
+      if len(self.vfs)>0: str += '\n'
+      for vf in self.vfs:
+        str += f'\t VF: {vf.pci_id} - {vf.vfio["vfio_dev"]}\n'
+      return str
 
 class QatDevManager:
   """
