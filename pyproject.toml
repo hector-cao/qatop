@@ -1,0 +1,35 @@
+[project]
+name = "qat-tools"
+description = "A collection of tools for Intel Quick Assist Technology (QAT)"
+readme = "README.md"
+license = {text = "GPL-3.0-only"}
+maintainers = [{name ="Hector Cao"}]
+authors = [{name = "Hector Cao", email = "hector.cao@canonical.com"}]
+requires-python = ">=3.10"
+dependencies = [
+  'importlib-metadata; python_version < "3.8"',
+  "wcwidth",
+]
+dynamic = [
+  "version",
+]
+classifiers = [
+  "License :: OSI Approved :: GPL-3.0-only",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Text Processing",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/canonical/qat-tools"
+Source = "https://github.com/canonical/qat-tools"
+
